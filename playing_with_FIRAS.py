@@ -127,9 +127,10 @@ def dBdT(nu, T):
     h = const.h.value
     c = const.c.value
     kb = const.k_B.value
-    a = np.exp(h*nu/kb/T)
-    return 2*h**2*nu**4/kb/c**2/T**2 * a/(a-1)**2
+    a = h*nu/kb/T
+    return 2 * h**2 * nu**4 / (kb * c**2 * T**2) * np.exp(a) / np.expm1(a)**2
 
+'''
 def func_mu(nu, T, mu):
     T0 = T_simple
     h = const.h.value
@@ -137,6 +138,15 @@ def func_mu(nu, T, mu):
     kb = const.k_B.value
     x = h*nu/kb/T
     return -T0*mu/x * dBdT(nu, T)
+'''
+def func_mu(nu, mu):
+    T = T_simple
+    h = const.h.value
+    c = const.c.value
+    kb = const.k_B.value
+    x = h*nu/kb/T
+    return -T*mu/x * dBdT(nu, T)
+
 
 popt_mu, pcov_mu = curve_fit(func_mu, xdata = firas_freq.si.value, ydata = firas["res"].si.value)
 print(popt_mu)
@@ -144,7 +154,7 @@ print(popt_mu)
 plt.figure()
 #plt.errorbar(firas_freq, firas["res"], yerr = firas["sigma"], fmt = "k-", lw = 1)
 plt.plot(firas_freq, firas["res"], "k", lw = 1)
-plt.plot(firas_freq, (func_mu(firas_freq.si.value, popt_mu[0], popt_mu[1])*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:turquoise', ls = "--", label = "fit")
+plt.plot(firas_freq, (func_mu(firas_freq.si.value, popt_mu[0])*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:turquoise', ls = "--", label = "fit")
 plt.ylim([-100, 100])
 plt.xlabel("Frequency (GHz)")
 plt.ylabel("Residual intensity (kJy/sr)")
@@ -191,7 +201,7 @@ plt.show()
 
 plt.figure()
 plt.plot(firas_freq, firas["res"], "k", lw = 1)
-plt.plot(firas_freq, (func_mu(firas_freq.si.value, T_simple, -9*10**(-5))*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:turquoise', ls = "--", label = "fit (mu)")
+plt.plot(firas_freq, (func_mu(firas_freq.si.value, -9*10**(-5))*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:turquoise', ls = "--", label = "fit (mu)")
 #plt.plot(firas_freq, (func_y(firas_freq.si.value, T_simple, 15*10**(-6))*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:orange', ls = "-.", label = "fit (y)")
 plt.ylim([-100, 100])
 plt.xlabel("Frequency (GHz)")
