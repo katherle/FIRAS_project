@@ -56,6 +56,7 @@ def func(nu, T):
     kb = const.k_B.value
     return (2*h*nu**3/c**2 / (np.exp(h*nu/kb/T) - 1))
 
+'''
 #set up data to fit to
 S = (np.mean(firas_spectra[1].data['spectrum'], axis = 0)*u.MJy/u.sr) #took average over all pixels just to see
 #print(S[0:43])
@@ -67,6 +68,7 @@ T_full, pcov_full = curve_fit(func, xdata = freq.si.value, ydata = S.si.value)
 bb_full = BlackBody(T_full*u.K) #theoretical blackbody with fitted value
 #print(bb_full(freq)[0:43])
 print(T_full)
+'''
 
 
 ### also try with data from Fixsen (1996):
@@ -140,12 +142,14 @@ popt_mu, pcov_mu = curve_fit(func_mu, xdata = firas_freq.si.value, ydata = firas
 print(popt_mu)
 
 plt.figure()
-plt.errorbar(firas_freq, firas["res"], yerr = firas["sigma"], fmt = "k.")
+#plt.errorbar(firas_freq, firas["res"], yerr = firas["sigma"], fmt = "k-", lw = 1)
+plt.plot(firas_freq, firas["res"], "k", lw = 1)
 plt.plot(firas_freq, (func_mu(firas_freq.si.value, popt_mu[0], popt_mu[1])*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:turquoise', ls = "--", label = "fit")
 plt.ylim([-100, 100])
 plt.xlabel("Frequency (GHz)")
 plt.ylabel("Residual intensity (kJy/sr)")
 plt.title(r"Temperature + $\mu$")
+plt.tight_layout()
 plt.legend()
 plt.show()
 
@@ -156,10 +160,13 @@ plt.show()
 #also still need to propagate said errors
 #should probably zoom in to show the differences at some point
 #should at least be able to see the error bars lol
+#edit: fit the residuals instead and this is no longer true
 
 #to fit y I need to solve the diff eq in Fixsen and then fit the result
 #in order to do that I need the derivative of the planck function
+#edit: this is not true
 
+'''
 def func_y(nu, T, y):
     h = const.h.value
     c = const.c.value
@@ -180,19 +187,18 @@ plt.ylabel("Residual intensity (kJy/sr)")
 plt.title("Temperature + y")
 plt.legend()
 plt.show()
-
+'''
 
 plt.figure()
 plt.plot(firas_freq, firas["res"], "k", lw = 1)
-plt.plot(firas_freq, (func_mu(firas_freq.si.value, T_simple, 3.3*10**(-4))*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:turquoise', ls = "--", label = "fit (mu)")
-plt.plot(firas_freq, (func_y(firas_freq.si.value, T_simple, 2.5*10**(-5))*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:orange', ls = "-.", label = "fit (y)")
+plt.plot(firas_freq, (func_mu(firas_freq.si.value, T_simple, -9*10**(-5))*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:turquoise', ls = "--", label = "fit (mu)")
+#plt.plot(firas_freq, (func_y(firas_freq.si.value, T_simple, 15*10**(-6))*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:orange', ls = "-.", label = "fit (y)")
 plt.ylim([-100, 100])
 plt.xlabel("Frequency (GHz)")
-#plt.ylabel("Residual intensity (kJy/sr)")
+plt.ylabel("Residual intensity (kJy/sr)")
 plt.title("Reproducing Fig. 5 (Fixsen et al 1996)")
 plt.legend()
 plt.show()
-
 
 #this is complaining a lot and I feel like it's probably either that I have a typo somewhere
 #or it's having overflow issues or something
@@ -214,6 +220,7 @@ plt.show()
 #but I'm pretty sure I'm on the right track
 
 ### gonna try the data from mather et al 1996
+'''
 freq = np.array([2.27, 2.83, 3.40, 3.96, 4.53, 5.10, 5.66, 6.23, 6.80, 7.36, 7.93, 8.49, 9.06, 9.63, 10.19, 10.76, 11.33, 11.89, 12.46, 13.03, 13.59, 14.16, 14.72, 15.29, 15.86, 16.42, 16.99, 17.56, 18.12, 18.69, 19.26, 19.82, 20.39, 20.95])/u.cm
 res = np.array([18, 19, 34, 10, 2, -24, 4, -5, -6, -4, -2, 6, -2, 7, 4, -28, -9, 17, 2, 16, 4, 4, 15, -4, 8, 17, 6, -1, -12, 0, -15, -8, 25, -88])*10**(-9)*u.erg/u.cm/u.cm/u.s/u.sr*u.cm
 sigma = np.array([9, 14, 16, 14, 14, 12, 12, 9, 9, 8, 7, 7, 8, 10, 11, 13, 15, 14, 14, 13, 12, 11, 11, 12, 13, 15, 17, 18, 19, 20, 20, 25, 40, 78])*10**(-9)*u.erg/u.cm/u.cm/u.s/u.sr*u.cm
@@ -236,5 +243,6 @@ def Smu(nu, T, mu):
     x = h*c*nu/kb/T
     return -T0*mu/x *dBdT(nu, T)
 
-popt_mu2, pcov_mu2 = curve_fit(Smu, xdata = firas_2["freq"].value, ydata = firas_2["res"].si.value)
+popt_mu2, pcov_mu2 = curve_fit(Smu, xdata = firas_2["freq"].value, ydata = firas_2["res"].value)
 print(popt_mu2) #this is just ones oh nooo
+'''
