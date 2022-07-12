@@ -111,24 +111,24 @@ plt.show()
 #update: don't know what it is but it's sure not the averaging, at least not entirely
 
 #update: something's weird with the raw data, so I'm gonna ignore it for now
-#and move on to finding mu following Mather et al (1994)
+#and move on to finding mu following Fiksen et al (1996)
 
-'''
-def func_mu(nu, T, mu):
-    #all inputs must be in SI units
-    h = const.h.value
-    c = const.c.value
-    kb = const.k_B.value
-    x = h*nu/kb/T
-    return (2*h*nu**3/c**2 / (np.exp(x + mu) - 1))
-'''
+#equation 4 in Fiksen et al 1996 is in units of W/m/sr
+#intensities are given in kJy/sr, which can be converted to W/m^2/sr
+#so somewhere I'm missing a factor of 1/m
+#technically the intensity is p dS/dp
+#so is the spectral distortion given in 1/m?
+#no, it should be dimensionless
+#edit: found it, the thing that should be in kJy/sr is T dBdT, not S
 
 def dBdT(nu, T):
-    h = const.h.value
-    c = const.c.value
-    kb = const.k_B.value
-    a = h*nu/kb/T
-    return 2 * h**2 * nu**4 / (kb * c**2 * T**2) * np.exp(a) / np.expm1(a)**2
+    #we want nu in cm-1, T in K
+    #all constants in SI units
+    a = (const.h*const.c.to('cm/s')*nu/const.k_B/T)
+    print(a)
+    return 2 * const.h**2 * const.c**3 * nu**4 / (const.k_B * T**2) * np.exp(a) / np.expm1(a)**2
+#IF I CHANGE THE EXPONENT ON c IN LINE 129 IT CHANGES THE UNITS OF a IN LINE 127
+#WHY
 
 '''
 def func_mu(nu, T, mu):
@@ -140,21 +140,21 @@ def func_mu(nu, T, mu):
     return -T0*mu/x * dBdT(nu, T)
 '''
 def func_mu(nu, mu):
-    T = T_simple
-    h = const.h.value
-    c = const.c.value
-    kb = const.k_B.value
-    x = h*nu/kb/T
-    return -T*mu/x * dBdT(nu, T)
+    #nu in cm-1, T in K
+    #all constants in SI units
+    nu = nu/u.cm
+    T = T_simple*u.K
+    x = const.h*const.c*nu/const.k_B/T
+    return (-T*mu/x * dBdT(nu, T)/u.sr).to('kJy/sr').value
 
 
-popt_mu, pcov_mu = curve_fit(func_mu, xdata = firas_freq.si.value, ydata = firas["res"].si.value)
+popt_mu, pcov_mu = curve_fit(func_mu, xdata = firas["freq"].value, ydata = firas["res"])
 print(popt_mu)
 
 plt.figure()
 #plt.errorbar(firas_freq, firas["res"], yerr = firas["sigma"], fmt = "k-", lw = 1)
 plt.plot(firas_freq, firas["res"], "k", lw = 1)
-plt.plot(firas_freq, (func_mu(firas_freq.si.value, popt_mu[0])*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:turquoise', ls = "--", label = "fit")
+plt.plot(firas_freq, (func_mu(firas["freq"], popt_mu[0]))*u.kJy/u.sr, color = 'xkcd:turquoise', ls = "--", label = "fit")
 plt.ylim([-100, 100])
 plt.xlabel("Frequency (GHz)")
 plt.ylabel("Residual intensity (kJy/sr)")
@@ -201,9 +201,9 @@ plt.show()
 
 plt.figure()
 plt.plot(firas_freq, firas["res"], "k", lw = 1)
-plt.plot(firas_freq, (func_mu(firas_freq.si.value, -9*10**(-5))*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:turquoise', ls = "--", label = "fit (mu)")
+plt.plot(firas_freq, (func_mu(firas["freq"].value, 9*10**(-5))*u.J*u.m**2/u.cm**4/u.sr).to('kJy/sr'), color = 'xkcd:turquoise', ls = "--", label = "fit (mu)")
 #plt.plot(firas_freq, (func_y(firas_freq.si.value, T_simple, 15*10**(-6))*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:orange', ls = "-.", label = "fit (y)")
-plt.ylim([-100, 100])
+#plt.ylim([-100, 100])
 plt.xlabel("Frequency (GHz)")
 plt.ylabel("Residual intensity (kJy/sr)")
 plt.title("Reproducing Fig. 5 (Fixsen et al 1996)")
