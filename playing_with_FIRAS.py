@@ -125,16 +125,15 @@ def dBdT(nu):
     #we want nu in cm-1
     #all constants in SI units
     T = T_simple*u.K
-    a = const.h*const.c.to('cm/s')*nu/const.k_B/T
-    #print(a)
-    return 2 * const.h**2 * const.c**2 * nu**4 / (const.k_B * T**2) * np.exp(a) / np.expm1(a)**2
+    x = const.h*const.c.to('cm/s')*nu/const.k_B/T
+    return 2 * const.h**2 * const.c**2 * nu**4 / (const.k_B * T**2) * np.exp(x) / np.expm1(x)**2
 
 def func_mu(nu, mu):
     #nu in cm-1 (but without astropy units or scipy freaks out), T in K
     #all constants in SI units
     nu = nu/u.cm
     T = T_simple*u.K
-    x = const.h*const.c*nu/const.k_B/T
+    x = const.h*const.c.to('cm/s')*nu/const.k_B/T
     return (-T*mu/x * dBdT(nu)/u.sr).to('kJy/sr').value
 
 
@@ -166,37 +165,40 @@ plt.show()
 #in order to do that I need the derivative of the planck function
 #edit: this is not true
 
-'''
-def func_y(nu, T, y):
-    h = const.h.value
-    c = const.c.value
-    kb = const.k_B.value
-    x = h*c*nu/kb/T
-    T0 = T_simple
-    return y*(T0*x/np.tanh(x/2) - 4*dBdT(nu, T))
+def func_y(nu, y):
+    #nu in cm-1 (but without astropy units or scipy freaks out), T in K
+    #all constants in SI units
+    #note: having problems with overflow errors
+    nu = nu/u.cm
+    T = T_simple*u.K
+    x = const.h*const.c.to('cm/s')*nu/const.k_B/T
+    #note: typo in F96, compare to Bianchini & Fabbian 2022
+    #also rephrasing cotanh in a futile attempt to avoid overflow
+    return (y*T*(x*(np.exp(x)+1)/np.expm1(x) - 4)*dBdT(nu)).to('kJy').value
 
-popt_y, pcov_y = curve_fit(func_y, xdata = firas_freq.si.value, ydata = firas["res"].si.value)
+popt_y, pcov_y = curve_fit(func_y, xdata = firas["freq"].value, ydata = firas["res"])
 print(popt_y)
 
 plt.figure()
-plt.errorbar(firas_freq, firas["res"], yerr = firas["sigma"], fmt = "k.")
-plt.plot(firas_freq, (func_y(firas_freq.si.value, popt_y[0], popt_y[1])*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:turquoise', ls = "--", label = "fit")
+#plt.errorbar(firas_freq, firas["res"], yerr = firas["sigma"], fmt = "k.")
+plt.plot(firas_freq, firas["res"], "k", lw = 1)
+plt.plot(firas_freq, func_y(firas["freq"].value, popt_y[0])*u.kJy/u.sr, color = 'xkcd:turquoise', ls = "--", label = "fit")
 plt.ylim([-100, 100])
 plt.xlabel("Frequency (GHz)")
 plt.ylabel("Residual intensity (kJy/sr)")
 plt.title("Temperature + y")
 plt.legend()
 plt.show()
-'''
 
 plt.figure()
 plt.plot(firas_freq, firas["res"], "k", lw = 1)
 plt.plot(firas_freq, (func_mu(firas["freq"].value, -9*10**(-5)))*u.kJy/u.sr, color = 'xkcd:turquoise', ls = "--", label = "fit (mu)")
-#plt.plot(firas_freq, (func_y(firas_freq.si.value, T_simple, 15*10**(-6))*u.J/u.m/u.m/u.sr).to('kJy/sr'), color = 'xkcd:orange', ls = "-.", label = "fit (y)")
+plt.plot(firas_freq, (func_y(firas["freq"].value, 15*10**(-6))*u.kJy/u.sr), color = 'xkcd:orange', ls = "-.", label = "fit (y)")
 plt.ylim([-100, 100])
 plt.xlabel("Frequency (GHz)")
 plt.ylabel("Residual intensity (kJy/sr)")
 plt.title("Reproducing Fig. 5 (Fixsen et al 1996)")
+plt.tight_layout()
 plt.legend()
 plt.show()
 
