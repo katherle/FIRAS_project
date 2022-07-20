@@ -266,8 +266,8 @@ from scipy.optimize import minimize
 
 #np.random.seed(42)
 nll = lambda *args: -log_Ly(*args)
-T_ini = 2.7 + 0.1 * np.random.randn()
-y_ini = -1e-6 + 1e-7 * np.random.randn()
+T_ini = 2.7
+y_ini = -1e-6
 initial = np.array([T_ini, y_ini])
 print("Initial:")
 print(T_ini)
