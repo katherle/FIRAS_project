@@ -122,28 +122,28 @@ plt.show()
 #edit: found it, the thing that should be in kJy/sr is T dBdT, not S
 
 def dBdT(nu):
-    #we want nu in cm-1
+    #we want nu in s-1
     #all constants in SI units
     T = T_simple*u.K
-    x = const.h*const.c.to('cm/s')*nu/const.k_B/T
-    return 2 * const.h**2 * const.c**2 * nu**4 / (const.k_B * T**2) * np.exp(x) / np.expm1(x)**2
+    x = const.h*nu/const.k_B/T
+    return 2 * const.h**2 * nu**4 / (const.k_B * const.c**2 * T**2) * np.exp(x) / np.expm1(x)**2
 
 def func_mu(nu, mu):
-    #nu in cm-1 (but without astropy units or scipy freaks out), T in K
+    #nu in GHz (but without astropy units or scipy freaks out), T in K
     #all constants in SI units
-    nu = nu/u.cm
+    nu = (nu*u.GHz).to('s-1')
     T = T_simple*u.K
-    x = const.h*const.c.to('cm/s')*nu/const.k_B/T
-    return (-T*mu/x * dBdT(nu)/u.sr).to('kJy/sr').value
+    x = const.h*nu/const.k_B/T
+    return (-T*mu/x * dBdT(nu)).to('kJy').value
 
 
-popt_mu, pcov_mu = curve_fit(func_mu, xdata = firas["freq"].value, ydata = firas["res"])
+popt_mu, pcov_mu = curve_fit(func_mu, xdata = firas_freq.value, ydata = firas["res"])
 print(popt_mu)
 
 plt.figure()
 #plt.errorbar(firas_freq, firas["res"], yerr = firas["sigma"], fmt = "k-", lw = 1)
 plt.plot(firas_freq, firas["res"], "k", lw = 1)
-plt.plot(firas_freq, (func_mu(firas["freq"].value, popt_mu[0]))*u.kJy/u.sr, color = 'xkcd:turquoise', ls = "--", label = "fit")
+plt.plot(firas_freq, (func_mu(firas_freq.value, popt_mu[0]))*u.kJy/u.sr, color = 'xkcd:turquoise', ls = "--", label = "fit")
 plt.ylim([-100, 100])
 plt.xlabel("Frequency (GHz)")
 plt.ylabel("Residual intensity (kJy/sr)")
@@ -166,23 +166,22 @@ plt.show()
 #edit: this is not true
 
 def func_y(nu, y):
-    #nu in cm-1 (but without astropy units or scipy freaks out), T in K
+    #nu in GHz (but without astropy units or scipy freaks out), T in K
     #all constants in SI units
     #note: having problems with overflow errors
-    nu = nu/u.cm
+    nu = (nu*u.GHz).to('s-1')
     T = T_simple*u.K
-    x = const.h*const.c.to('cm/s')*nu/const.k_B/T
+    x = const.h*nu/const.k_B/T
     #note: typo in F96, compare to Bianchini & Fabbian 2022
-    #also rephrasing cotanh in a futile attempt to avoid overflow
     return (y*T*(x*(np.exp(x)+1)/np.expm1(x) - 4)*dBdT(nu)).to('kJy').value
 
-popt_y, pcov_y = curve_fit(func_y, xdata = firas["freq"].value, ydata = firas["res"])
+popt_y, pcov_y = curve_fit(func_y, xdata = firas_freq.value, ydata = firas["res"])
 print(popt_y)
 
 plt.figure()
 #plt.errorbar(firas_freq, firas["res"], yerr = firas["sigma"], fmt = "k.")
 plt.plot(firas_freq, firas["res"], "k", lw = 1)
-plt.plot(firas_freq, func_y(firas["freq"].value, popt_y[0])*u.kJy/u.sr, color = 'xkcd:turquoise', ls = "--", label = "fit")
+plt.plot(firas_freq, func_y(firas_freq.value, popt_y[0])*u.kJy/u.sr, color = 'xkcd:turquoise', ls = "--", label = "fit")
 plt.ylim([-100, 100])
 plt.xlabel("Frequency (GHz)")
 plt.ylabel("Residual intensity (kJy/sr)")
@@ -192,8 +191,8 @@ plt.show()
 
 plt.figure()
 plt.plot(firas_freq, firas["res"], "k", lw = 1)
-plt.plot(firas_freq, (func_mu(firas["freq"].value, -9*10**(-5)))*u.kJy/u.sr, color = 'xkcd:turquoise', ls = "--", label = "fit (mu)")
-plt.plot(firas_freq, (func_y(firas["freq"].value, 15*10**(-6))*u.kJy/u.sr), color = 'xkcd:orange', ls = "-.", label = "fit (y)")
+plt.plot(firas_freq, (func_mu(firas_freq.value, -9*10**(-5)))*u.kJy/u.sr, color = 'xkcd:turquoise', ls = "--", label = "fit (mu)")
+plt.plot(firas_freq, (func_y(firas_freq.value, 15*10**(-6))*u.kJy/u.sr), color = 'xkcd:orange', ls = "-.", label = "fit (y)")
 plt.ylim([-100, 100])
 plt.xlabel("Frequency (GHz)")
 plt.ylabel("Residual intensity (kJy/sr)")
@@ -248,3 +247,40 @@ def Smu(nu, T, mu):
 popt_mu2, pcov_mu2 = curve_fit(Smu, xdata = firas_2["freq"].value, ydata = firas_2["res"].value)
 print(popt_mu2) #this is just ones oh nooo
 '''
+
+
+### now that y works, at least, we can try fitting using mcmc
+#first: likelihood function
+def log_Ly(theta, nu, Sres, Serr):
+    #nu is an array of frequencies in s-1
+    #Sres and Serr are the residual and error arrays in kJy/sr
+    nu = nu/u.s
+    T, y = theta
+    x = const.h*nu/const.k_B/(T*u.K)
+    model = (y*T*u.K * (x * (np.exp(x)+1) / np.expm1(x) - 4) * dBdT(nu)).to('kJy')/u.sr
+    sigma2 = Serr**2 + model**2
+    return -0.5 * np.sum((Sres-model)**2/sigma2)
+
+#maximum likelihood:
+from scipy.optimize import minimize
+
+#np.random.seed(42)
+nll = lambda *args: -log_Ly(*args)
+T_ini = 2.7 + 0.1 * np.random.randn()
+y_ini = -1e-6 + 1e-7 * np.random.randn()
+initial = np.array([T_ini, y_ini])
+print("Initial:")
+print(T_ini)
+print(y_ini)
+
+soln = minimize(nll, initial, args = (firas["freq"].value, firas["res"], firas["sigma"]))
+T_ml, y_ml = soln.x
+
+print("Maximum likelihood estimates:")
+print(T_ml)
+print(y_ml)
+
+pos = [T_ml, y_ml] + 1e-4 * np.random.randn(32, 2)
+nwalkers, ndim = pos.shape
+sampler = mc.EnsembleSampler(nwalkers, ndim, log_Ly, args = (firas["freq"].value, firas["res"], firas["sigma"]))
+sampler.run_mcmc(pos, 5000, progress = True);
