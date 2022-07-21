@@ -21,11 +21,17 @@ plt.rc('figure', figsize = (7, 7/1.25))
 plt.rc('font', size = 14)
 
 #get the FIRAS data from their paper:
-names = ["freq", "monopole", "res", "sigma", "gal"]
-tmp = pd.read_csv("https://lambda.gsfc.nasa.gov/data/cobe/firas/monopole_spec/firas_monopole_spec_v1.txt", delim_whitespace = True, header = 0, skiprows = 17, names = names)
-unit_names = ["cm-1", "MJy/sr", "kJy/sr", "kJy/sr", "kJy/sr"]
-units = {names[i]:unit_names[i] for i in range(len(names))}
-firas = QTable.from_pandas(tmp, units = units)
+#names = ["freq", "monopole", "res", "sigma", "gal"]
+#tmp = pd.read_csv("https://lambda.gsfc.nasa.gov/data/cobe/firas/monopole_spec/firas_monopole_spec_v1.txt", delim_whitespace = True, header = 0, skiprows = 17, names = names)
+#unit_names = ["cm-1", "MJy/sr", "kJy/sr", "kJy/sr", "kJy/sr"]
+#units = {names[i]:unit_names[i] for i in range(len(names))}
+#firas = QTable.from_pandas(tmp, units = units)
+freq = [2.27, 2.72, 3.18, 3.64, 4.08, 4.54, 4.99, 5.45, 5.90, 6.35, 6.81, 7.26, 7.71, 8.17, 8.62, 9.08, 9.53, 9.98, 10.44, 10.89, 11.34, 11.80, 12.25, 12.71, 13.16, 13.61, 14.07, 14.52, 14.97, 15.43, 15.88, 16.34, 16.79, 17.24, 17.70, 18.15, 18.61, 19.06, 19.51, 19.97, 20.42, 20.87, 21.33]/u.cm
+monopole = [200.723, 249.508, 293.024, 327.770, 354.081, 372.079, 381.493, 383.478, 378.901, 368.833, 354.063, 336.278, 316.076, 293.924, 271.432, 248.239, 225.940, 204.327, 183.262, 163.830, 145.750, 128.835, 113.568, 99.451, 87.036, 75.876, 65.766, 57.008, 49.223, 42.267, 36.352, 31.062, 26.580, 22.644, 19.255, 16.391, 13.811, 11.716, 9.921, 8.364, 7.087, 5.801, 4.523]*u.MJy/u.sr
+res = [5, 9, 15, 4, 19, -30, -30, -10, 32, 4, -2, 13, -22, 8, 8, -21, 9, 12, 11, -29, -46, 58, 6, -6, 6, -17, 6, 26, -12, -19, 8, 7, 14, -33, 6, 26, -26, -6, 8, 26, 57, -116, -432]*u.kJy/u.sr
+sigma = [14, 19, 25, 23, 22, 21, 18, 18, 16, 14, 13, 12, 11, 10, 11, 12, 14, 16, 18, 22, 22, 23, 23, 23, 22, 21, 20, 19, 19, 19, 21, 23, 26, 28, 30, 32, 33, 35, 41, 55, 88, 155, 282]*u.kJy/u.sr
+gal = [4, 3, -1, -1, 3, 6, 8, 8, 10, 10, 12, 20, 25, 30, 36, 41, 46, 57, 65, 73, 93, 98, 105, 121, 135, 147, 160, 178, 199, 221, 227, 250, 275, 295, 312, 336, 363, 405, 421, 435, 477, 519, 573]*u.kJy/u.sr
+firas = QTable([freq, monopole, res, sigma, gal], names = ("freq", "monopole", "res", "sigma", "gal"))
 
 # COBE/FIRAS CMB monopole spectrum
 # Reference1 = Table 4 of Fixsen et al. 1996 ApJ 473, 576.
@@ -254,33 +260,78 @@ print(popt_mu2) #this is just ones oh nooo
 def log_Ly(theta, nu, Sres, Serr):
     #nu is an array of frequencies in s-1
     #Sres and Serr are the residual and error arrays in kJy/sr
-    nu = nu/u.s
-    T, y = theta
+    #T, y = theta
+    T = theta
+    print(T)
+    y = -1e-6
     x = const.h*nu/const.k_B/(T*u.K)
+    print(np.exp(x))
     model = (y*T*u.K * (x * (np.exp(x)+1) / np.expm1(x) - 4) * dBdT(nu)).to('kJy')/u.sr
+    #print(model)
     sigma2 = Serr**2 + model**2
     return -0.5 * np.sum((Sres-model)**2/sigma2)
+
+def log_Lmu(theta, nu, Sres, Serr):
+    T, mu = theta
+    x = const.h*nu/const.k_B/(T*u.K)
+    model = (-T*u.K*mu/x * dBdT(nu)).to('kJy')/u.sr
+    sigma2 = Serr**2 + model**2
+    return -0.5 * np.sum((Sres-model)**2/sigma2)
+
+
+plt.figure()
+plt.plot(firas_freq.to('s-1'), firas["res"], lw = 1, color = 'k', label = r"S($\nu$)")
+x = const.h*firas_freq.to('s-1')/const.k_B/(T_simple*u.K)
+y = -1e-6
+mu = -1e-5
+model_y = (y*T_simple*u.K * (x * (np.exp(x)+1) / np.expm1(x) - 4) * dBdT(firas_freq.to('s-1'))).to('kJy')/u.sr
+model_mu = (-T_simple*u.K*mu/x * dBdT(firas_freq.to('s-1'))).to('kJy')/u.sr
+plt.plot(firas_freq.to('s-1'), np.sqrt(firas["sigma"]**2 + model_y**2), color = 'gray', label = r"$\sigma$")
+plt.plot(firas_freq.to('s-1'), model_y, lw = 1, ls = '--', color = "xkcd:orange", label = "f(T, y)")
+#plt.plot(firas_freq.to('s-1'), model_mu, lw = 1, ls = '--', color = "xkcd:turquoise")
+plt.ylim([-100, 100])
+plt.legend()
+plt.grid()
+plt.tight_layout()
+plt.show()
 
 #maximum likelihood:
 from scipy.optimize import minimize
 
-#np.random.seed(42)
-nll = lambda *args: -log_Ly(*args)
-T_ini = 2.7
+nll_y = lambda *args: -log_Ly(*args)
+nll_mu = lambda *args: -log_Lmu(*args)
+T_ini = 2.728
 y_ini = -1e-6
-initial = np.array([T_ini, y_ini])
+mu_ini = -1e-5
+initial_y = np.array([T_ini, y_ini])
+initial_mu = np.array([T_ini, mu_ini])
+initial = np.array([T_ini])
 print("Initial:")
 print(T_ini)
 print(y_ini)
+print(mu_ini)
 
-soln = minimize(nll, initial, args = (firas["freq"].value, firas["res"], firas["sigma"]))
-T_ml, y_ml = soln.x
+soln_y = minimize(nll_y, initial, args = (firas_freq.to('s-1'), firas["res"], firas["sigma"]))
+soln_mu = minimize(nll_mu, initial_mu, args = (firas_freq.to('s-1'), firas["res"], firas["sigma"]))
+T_ml_y = soln_y.x
+T_ml_mu, mu_ml = soln_mu.x
 
 print("Maximum likelihood estimates:")
-print(T_ml)
-print(y_ml)
+print(T_ml_y, ",  ", T_ml_mu)
+#print(y_ml)
+print(mu_ml)
+#y gives overflow warnings and spits out whatever I put in
+#mu doesn't give warnings but spits out nonsense
 
-pos = [T_ml, y_ml] + 1e-4 * np.random.randn(32, 2)
+#print(y_ml)
+#print(mu_ml)
+
+'''
+np.random.seed(42)
+pos = T_ini*np.random.randn(32, 1)
+#pos = soln_y.x + [1e-4, 1e-7]*np.random.randn(32, 2)
+print(pos.shape)
 nwalkers, ndim = pos.shape
-sampler = mc.EnsembleSampler(nwalkers, ndim, log_Ly, args = (firas["freq"].value, firas["res"], firas["sigma"]))
+sampler = mc.EnsembleSampler(nwalkers, ndim, log_Ly, args = (firas_freq.to('s-1'), firas["res"], firas["sigma"]))
 sampler.run_mcmc(pos, 5000, progress = True);
+'''
