@@ -269,8 +269,7 @@ def log_Ly(theta, nu, Sres, Serr):
     #print(np.exp(x))
     model = (y*T*u.K * (x * (np.exp(x)+1) / np.expm1(x) - 4) * dBdT(nu)).to('kJy')/u.sr
     #print(model)
-    sigma2 = Serr**2 + model**2
-    log_L = -0.5 * np.sum((Sres-model)**2/sigma2 + np.log(sigma2.value))
+    log_L = -0.5 * np.sum((Sres-model)**2/Serr**2)
     #print(log_L)
     return log_L
 
@@ -278,8 +277,7 @@ def log_Lmu(theta, nu, Sres, Serr):
     T, mu = theta
     x = const.h*nu/const.k_B/(T*u.K)
     model = (-T*u.K*mu/x * dBdT(nu)).to('kJy')/u.sr
-    sigma2 = Serr**2 + model**2
-    log_L = -0.5 * np.sum((Sres-model)**2/sigma2 + np.log(sigma2.value))
+    log_L = -0.5 * np.sum((Sres-model)**2/Serr**2)
     #print(T)
     #print(log_L)
     return log_L
@@ -289,9 +287,8 @@ def log_LBB(T, nu, S, Serr):
     #bb = BlackBody(T*u.K)
     #model = bb(nu).to('MJy/sr')
     model = (2*const.h*nu**3/const.c**2 * 1/np.expm1(const.h*nu/const.k_B/(T*u.K))).to('MJy')/u.sr
-    sigma2 = Serr**2 + model**2
 
-    log_L = -0.5 * np.sum((S-model)**2/sigma2 + np.log(sigma2.value))
+    log_L = -0.5 * np.sum((S-model)**2/Serr.to('MJy/sr')**2)
     #print(log_L)
     return log_L
 
@@ -389,13 +386,15 @@ sampler.run_mcmc(pos, 5000, progress = True);
 
 samples = sampler.get_chain()
 plt.figure()
-plt.plot(samples[:, :, 1], "k", alpha = 0.3)
+plt.plot(samples[:, :, 0], "k", alpha = 0.3)
+plt.ylabel("T")
+plt.xlabel("sample number")
 plt.show()
 
 tau = sampler.get_autocorr_time()
 print(tau)
-flat_samples = sampler.get_chain(discard = 300, thin = 150, flat = True)
 
-import corner
-fig.corner.corner(flat_samples, labels = labels, truths = [T_ini])
-plt.show()
+flat_samples = sampler.get_chain(discard = 50, thin = 7, flat = True)
+T_mcmc = np.percentile(flat_samples[:, 0], [16, 50, 84])
+q = np.diff(T_mcmc)
+print("T = ", T_mcmc[1], "+", q[1], "-", q[0])
