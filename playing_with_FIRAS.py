@@ -287,7 +287,6 @@ def log_LBB(T, nu, S, Serr):
     #bb = BlackBody(T*u.K)
     #model = bb(nu).to('MJy/sr')
     model = (2*const.h*nu**3/const.c**2 * 1/np.expm1(const.h*nu/const.k_B/(T*u.K))).to('MJy')/u.sr
-
     log_L = -0.5 * np.sum((S-model)**2/Serr.to('MJy/sr')**2)
     #print(log_L)
     return log_L
@@ -364,6 +363,7 @@ plt.grid()
 plt.tight_layout()
 plt.show()
 
+'''
 plt.figure()
 T = np.linspace(1, 3, 100)
 likelihood_BB = np.zeros(100)
@@ -371,30 +371,47 @@ for i in range(len(T)):
     likelihood_BB[i] = log_LBB(T[i], firas_freq.to('s-1'), firas["monopole"], firas["sigma"])
 plt.plot(T, likelihood_BB)
 plt.show()
+'''
 
 #print(y_ml)
 #print(mu_ml)
 
 
 np.random.seed(42)
-pos = T_ini*np.random.randn(32, 1)
-#pos = soln_y.x + [1e-4, 1e-7]*np.random.randn(32, 2)
-print(pos.shape)
+#pos = T_ini*np.random.randn(32, 1)
+pos = [T_ini, y_ini] + [1e-4, 1e-7]*np.random.randn(32, 2)
+#print(pos)
 nwalkers, ndim = pos.shape
-sampler = mc.EnsembleSampler(nwalkers, ndim, log_LBB, args = (firas_freq.to('s-1'), firas["monopole"], firas["sigma"]))
+sampler = mc.EnsembleSampler(nwalkers, ndim, log_Ly, args = (firas_freq.to('s-1'), firas["res"], firas["sigma"]))
 sampler.run_mcmc(pos, 5000, progress = True);
 
+fig, axes = plt.subplots(2, figsize=(10, 7), sharex=True)
+samples = sampler.get_chain()
+labels = ["T", "y"]
+for i in range(ndim):
+    ax = axes[i]
+    ax.plot(samples[:, :, i], "k", alpha=0.3)
+    ax.set_xlim(0, len(samples))
+    ax.set_ylabel(labels[i])
+    ax.yaxis.set_label_coords(-0.1, 0.5)
+
+axes[-1].set_xlabel("step number")
+plt.show()
+
+tau = sampler.get_autocorr_time()
+print(tau)
+
+'''
 samples = sampler.get_chain()
 plt.figure()
 plt.plot(samples[:, :, 0], "k", alpha = 0.3)
 plt.ylabel("T")
 plt.xlabel("sample number")
 plt.show()
+'''
 
-tau = sampler.get_autocorr_time()
-print(tau)
-
-flat_samples = sampler.get_chain(discard = 50, thin = 7, flat = True)
-T_mcmc = np.percentile(flat_samples[:, 0], [16, 50, 84])
-q = np.diff(T_mcmc)
-print("T = ", T_mcmc[1], "+", q[1], "-", q[0])
+flat_samples = sampler.get_chain(discard = 150, thin = 40, flat = True)
+for i in range(ndim):
+    mcmc = np.percentile(flat_samples[:, i], [16, 50, 84])
+    q = np.diff(mcmc)
+    print(mcmc[1], "+", q[1], "-", q[0])
